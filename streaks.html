@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Streaks">
+<meta name="theme-color" content="#0a0a0a">
+<title>Streaks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface2: #1e1e1e;
+    --border: rgba(255,255,255,0.08);
+    --text: #f0f0f0;
+    --muted: #666;
+    --accent: #d4f57a;
+    --accent-dim: rgba(212,245,122,0.12);
+    --accent-text: #0a0a0a;
+    --danger: #ff5a5a;
+    --radius: 16px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100dvh;
+    overscroll-behavior: none;
+  }
+
+  #app {
+    max-width: 430px;
+    margin: 0 auto;
+    padding: calc(var(--safe-top) + 20px) 20px calc(var(--safe-bottom) + 100px);
+    min-height: 100dvh;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 28px;
+  }
+  .header-title {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+  }
+  .header-date {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* Summary bar */
+  .summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+  .stat-val {
+    font-size: 22px;
+    font-weight: 600;
+    font-family: 'DM Mono', monospace;
+    color: var(--accent);
+  }
+  .stat-lbl {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* Section heading */
+  .section-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+  }
+
+  /* Activity card */
+  .activity-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+
+  .activity-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: border-color 0.15s, background 0.15s;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+  .activity-card.done {
+    border-color: rgba(212,245,122,0.25);
+    background: rgba(212,245,122,0.04);
+  }
+  .activity-card.done::after {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent);
+    border-radius: 3px 0 0 3px;
+  }
+
+  .activity-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+    transition: transform 0.15s;
+  }
+  .activity-card.done .activity-icon {
+    background: var(--accent-dim);
+  }
+
+  .activity-info { flex: 1; min-width: 0; }
+  .activity-name {
+    font-size: 15px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+  }
+  .activity-meta {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .streak-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+  .streak-badge.zero { color: var(--muted); background: var(--surface2); }
+  .activity-freq {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .check-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    cursor: pointer;
+  }
+  .activity-card.done .check-btn {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .check-icon { color: var(--accent); font-size: 16px; }
+  .activity-card.done .check-icon { color: var(--accent-text); }
+
+  /* Mini calendar dots */
+  .week-dots {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+  }
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--surface2);
+  }
+  .dot.filled { background: var(--accent); opacity: 0.7; }
+  .dot.today.filled { opacity: 1; }
+  .dot.today { border: 1px solid var(--muted); }
+
+  /* Swipe delete hint */
+  .delete-hint {
+    display: none;
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--danger);
+    font-size: 12px;
+  }
+
+  /* Bottom nav */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 430px;
+    padding: 12px 20px calc(var(--safe-bottom) + 12px);
+    background: rgba(10,10,10,0.85);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px 16px;
+    border-radius: 10px;
+    transition: color 0.15s;
+  }
+  .nav-btn.active { color: var(--accent); }
+  .nav-icon { font-size: 20px; }
+
+  .add-fab {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    color: var(--accent-text);
+    font-weight: 300;
+    line-height: 1;
+    box-shadow: 0 0 20px rgba(212,245,122,0.3);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .add-fab:active { transform: scale(0.93); box-shadow: 0 0 10px rgba(212,245,122,0.2); }
+
+  /* Modal overlay */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .overlay.open { display: flex; }
+
+  .sheet {
+    background: var(--surface);
+    border-radius: 24px 24px 0 0;
+    width: 100%;
+    max-width: 430px;
+    padding: 24px 24px calc(var(--safe-bottom) + 24px);
+    border-top: 1px solid var(--border);
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .sheet-handle {
+    width: 36px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 20px;
+  }
+  .sheet-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+
+  .form-group { margin-bottom: 16px; }
+  .form-label {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .form-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-size: 15px;
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+
+  .emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+  }
+  .emoji-btn {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    border: 1.5px solid transparent;
+    background: var(--surface2);
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s;
+  }
+  .emoji-btn.selected {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .freq-options { display: flex; gap: 8px; flex-wrap: wrap; }
+  .freq-btn {
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--muted);
+    font-size: 13px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  .freq-btn.selected {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  .sheet-actions { display: flex; gap: 10px; margin-top: 24px; }
+  .btn-primary {
+    flex: 1;
+    padding: 14px;
+    background: var(--accent);
+    color: var(--accent-text);
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn-primary:active { opacity: 0.85; }
+  .btn-cancel {
+    padding: 14px 20px;
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: 15px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+  }
+  .btn-danger {
+    padding: 14px 20px;
+    background: rgba(255,90,90,0.1);
+    color: var(--danger);
+    border: 1px solid rgba(255,90,90,0.2);
+    border-radius: 12px;
+    font-size: 15px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+  }
+
+  /* History view */
+  .history-view { display: none; }
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .history-icon {
+    font-size: 20px;
+    width: 36px;
+    text-align: center;
+  }
+  .history-name { font-size: 14px; flex: 1; }
+  .history-date { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
+  .history-streak { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--accent); }
+
+  /* Tap animation */
+  @keyframes pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+  .popping { animation: pop 0.2s ease; }
+
+  .empty-state {
+    text-align: center;
+    color: var(--muted);
+    padding: 48px 0 24px;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  .empty-state .big { font-size: 40px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div>
+      <div class="header-title">Streaks 🔥</div>
+      <div class="header-date" id="today-label"></div>
+    </div>
+  </div>
+
+  <div class="summary">
+    <div class="stat">
+      <div class="stat-val" id="stat-total">0</div>
+      <div class="stat-lbl">Activities</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="stat-done">0</div>
+      <div class="stat-lbl">Done today</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val" id="stat-best">0</div>
+      <div class="stat-lbl">Best streak</div>
+    </div>
+  </div>
+
+  <!-- Today view -->
+  <div id="today-view">
+    <div class="section-label">Today</div>
+    <div class="activity-list" id="activity-list">
+      <div class="empty-state" id="empty-state">
+        <div class="big">🌱</div>
+        Add your first activity<br>and start building streaks.
+      </div>
+    </div>
+  </div>
+
+  <!-- History view -->
+  <div id="history-view" class="history-view">
+    <div class="section-label">Recent completions</div>
+    <div id="history-list"></div>
+  </div>
+</div>
+
+<!-- Bottom nav -->
+<div class="bottom-nav">
+  <button class="nav-btn active" id="nav-today" onclick="showView('today')">
+    <span class="nav-icon">⚡</span>Today
+  </button>
+  <button class="add-fab" onclick="openAddSheet()">+</button>
+  <button class="nav-btn" id="nav-history" onclick="showView('history')">
+    <span class="nav-icon">📅</span>Log
+  </button>
+</div>
+
+<!-- Add / Edit Sheet -->
+<div class="overlay" id="overlay" onclick="handleOverlayClick(event)">
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="sheet-title">New activity</div>
+
+    <div class="form-group">
+      <label class="form-label">Name</label>
+      <input class="form-input" id="input-name" type="text" placeholder="e.g. Morning run" maxlength="40">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Icon</label>
+      <div class="emoji-grid" id="emoji-grid"></div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Frequency</label>
+      <div class="freq-options" id="freq-options"></div>
+    </div>
+
+    <div class="sheet-actions" id="sheet-actions">
+      <button class="btn-cancel" onclick="closeSheet()">Cancel</button>
+      <button class="btn-primary" onclick="saveActivity()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const EMOJIS = ['🏃','🧘','💪','📚','✍️','🎸','🥗','💧','😴','🧹','🌿','🚴','🏊','🎯','🧠','💊','🐕','🎨','🧪','📝','☀️','🌙','❤️','🔥','⭐','🎵','🍎','🧘‍♀️'];
+const FREQS = ['Daily','Weekdays','Weekends','3x/week','Custom'];
+
+let activities = JSON.parse(localStorage.getItem('streaks_v1') || '[]');
+let log = JSON.parse(localStorage.getItem('streaks_log') || '[]');
+let editingId = null;
+let selectedEmoji = EMOJIS[0];
+let selectedFreq = 'Daily';
+
+const todayStr = () => new Date().toISOString().slice(0,10);
+const fmtDate = d => { const dt = new Date(d+'T00:00:00'); return dt.toLocaleDateString('en-US', {weekday:'short',month:'short',day:'numeric'}); };
+
+function save() {
+  localStorage.setItem('streaks_v1', JSON.stringify(activities));
+  localStorage.setItem('streaks_log', JSON.stringify(log));
+}
+
+function getStreak(id) {
+  const entries = log.filter(e => e.id === id).map(e => e.date).sort().reverse();
+  if (!entries.length) return 0;
+  let streak = 0;
+  const today = todayStr();
+  let check = today;
+  for (let i = 0; i < 365; i++) {
+    if (entries.includes(check)) { streak++; }
+    else if (check === today) { /* allow today unfilled */ }
+    else break;
+    const d = new Date(check+'T00:00:00');
+    d.setDate(d.getDate()-1);
+    check = d.toISOString().slice(0,10);
+  }
+  return streak;
+}
+
+function getWeekDots(id) {
+  const today = new Date();
+  const dots = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const ds = d.toISOString().slice(0,10);
+    dots.push({ date: ds, filled: log.some(e => e.id === id && e.date === ds), isToday: i === 0 });
+  }
+  return dots;
+}
+
+function isDoneToday(id) {
+  return log.some(e => e.id === id && e.date === todayStr());
+}
+
+function render() {
+  const today = todayStr();
+  const dtFmt = new Date().toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric'});
+  document.getElementById('today-label').textContent = dtFmt;
+
+  const list = document.getElementById('activity-list');
+  const empty = document.getElementById('empty-state');
+  list.innerHTML = '';
+
+  if (!activities.length) {
+    list.appendChild(empty);
+    document.getElementById('stat-total').textContent = '0';
+    document.getElementById('stat-done').textContent = '0';
+    document.getElementById('stat-best').textContent = '0';
+    return;
+  }
+
+  const doneCount = activities.filter(a => isDoneToday(a.id)).length;
+  const bestStreak = activities.reduce((m, a) => Math.max(m, getStreak(a.id)), 0);
+  document.getElementById('stat-total').textContent = activities.length;
+  document.getElementById('stat-done').textContent = doneCount;
+  document.getElementById('stat-best').textContent = bestStreak;
+
+  activities.forEach(a => {
+    const done = isDoneToday(a.id);
+    const streak = getStreak(a.id);
+    const dots = getWeekDots(a.id);
+
+    const card = document.createElement('div');
+    card.className = 'activity-card' + (done ? ' done' : '');
+    card.dataset.id = a.id;
+
+    const dotHtml = dots.map(d =>
+      `<div class="dot${d.filled?' filled':''}${d.isToday?' today':''}"></div>`
+    ).join('');
+
+    card.innerHTML = `
+      <div class="activity-icon">${a.emoji}</div>
+      <div class="activity-info">
+        <div class="activity-name">${a.name}</div>
+        <div class="activity-meta">
+          <span class="streak-badge ${streak===0?'zero':''}">🔥 ${streak}d</span>
+          <span class="activity-freq">${a.freq}</span>
+        </div>
+        <div class="week-dots">${dotHtml}</div>
+      </div>
+      <button class="check-btn" onclick="toggleDone(event,'${a.id}')">
+        <span class="check-icon">${done ? '✓' : ''}</span>
+      </button>`;
+
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.check-btn')) return;
+      openEditSheet(a.id);
+    });
+
+    list.appendChild(card);
+  });
+}
+
+function renderHistory() {
+  const hl = document.getElementById('history-list');
+  const recent = [...log].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 50);
+  if (!recent.length) {
+    hl.innerHTML = '<div class="empty-state"><div class="big">📭</div>No completions yet.</div>';
+    return;
+  }
+  hl.innerHTML = recent.map(e => {
+    const act = activities.find(a => a.id === e.id);
+    if (!act) return '';
+    return `<div class="history-item">
+      <div class="history-icon">${act.emoji}</div>
+      <div class="history-name">${act.name}</div>
+      <div class="history-date">${fmtDate(e.date)}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleDone(event, id) {
+  event.stopPropagation();
+  const today = todayStr();
+  const idx = log.findIndex(e => e.id === id && e.date === today);
+  const btn = event.currentTarget;
+  btn.style.animation = 'none';
+  btn.offsetHeight;
+
+  if (idx >= 0) {
+    log.splice(idx, 1);
+  } else {
+    log.push({ id, date: today });
+    const icon = btn.closest('.activity-card').querySelector('.activity-icon');
+    icon.style.animation = 'none';
+    icon.offsetHeight;
+    icon.style.animation = 'pop 0.2s ease';
+  }
+  save();
+  render();
+}
+
+function showView(v) {
+  document.getElementById('today-view').style.display = v === 'today' ? '' : 'none';
+  document.getElementById('history-view').style.display = v === 'history' ? 'block' : 'none';
+  document.getElementById('nav-today').className = 'nav-btn' + (v === 'today' ? ' active' : '');
+  document.getElementById('nav-history').className = 'nav-btn' + (v === 'history' ? ' active' : '');
+  if (v === 'history') renderHistory();
+}
+
+function buildEmojiGrid(selected) {
+  const grid = document.getElementById('emoji-grid');
+  grid.innerHTML = EMOJIS.map(e =>
+    `<button class="emoji-btn${e===selected?' selected':''}" onclick="selectEmoji('${e}')">${e}</button>`
+  ).join('');
+}
+
+function buildFreqOptions(selected) {
+  const cont = document.getElementById('freq-options');
+  cont.innerHTML = FREQS.map(f =>
+    `<button class="freq-btn${f===selected?' selected':''}" onclick="selectFreq('${f}')">${f}</button>`
+  ).join('');
+}
+
+function selectEmoji(e) {
+  selectedEmoji = e;
+  buildEmojiGrid(e);
+}
+
+function selectFreq(f) {
+  selectedFreq = f;
+  buildFreqOptions(f);
+}
+
+function openAddSheet() {
+  editingId = null;
+  selectedEmoji = EMOJIS[0];
+  selectedFreq = 'Daily';
+  document.getElementById('sheet-title').textContent = 'New activity';
+  document.getElementById('input-name').value = '';
+  buildEmojiGrid(selectedEmoji);
+  buildFreqOptions(selectedFreq);
+  document.getElementById('sheet-actions').innerHTML = `
+    <button class="btn-cancel" onclick="closeSheet()">Cancel</button>
+    <button class="btn-primary" onclick="saveActivity()">Add activity</button>`;
+  document.getElementById('overlay').classList.add('open');
+  setTimeout(() => document.getElementById('input-name').focus(), 300);
+}
+
+function openEditSheet(id) {
+  const a = activities.find(x => x.id === id);
+  if (!a) return;
+  editingId = id;
+  selectedEmoji = a.emoji;
+  selectedFreq = a.freq;
+  document.getElementById('sheet-title').textContent = 'Edit activity';
+  document.getElementById('input-name').value = a.name;
+  buildEmojiGrid(selectedEmoji);
+  buildFreqOptions(selectedFreq);
+  document.getElementById('sheet-actions').innerHTML = `
+    <button class="btn-danger" onclick="deleteActivity('${id}')">Delete</button>
+    <button class="btn-primary" onclick="saveActivity()">Save changes</button>`;
+  document.getElementById('overlay').classList.add('open');
+}
+
+function closeSheet() {
+  document.getElementById('overlay').classList.remove('open');
+  editingId = null;
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('overlay')) closeSheet();
+}
+
+function saveActivity() {
+  const name = document.getElementById('input-name').value.trim();
+  if (!name) { document.getElementById('input-name').focus(); return; }
+  if (editingId) {
+    const a = activities.find(x => x.id === editingId);
+    if (a) { a.name = name; a.emoji = selectedEmoji; a.freq = selectedFreq; }
+  } else {
+    activities.push({ id: Date.now().toString(), name, emoji: selectedEmoji, freq: selectedFreq });
+  }
+  save();
+  closeSheet();
+  render();
+}
+
+function deleteActivity(id) {
+  if (!confirm('Delete this activity and its streak history?')) return;
+  activities = activities.filter(a => a.id !== id);
+  log = log.filter(e => e.id !== id);
+  save();
+  closeSheet();
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
