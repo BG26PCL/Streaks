@@ -154,6 +154,18 @@
   .empty-state .big { font-size: 40px; margin-bottom: 12px; }
 
   @keyframes pop { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+
+  /* Settings view */
+  .settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 12px; }
+  .settings-row { display: flex; align-items: center; gap: 14px; padding: 16px; cursor: pointer; transition: background 0.15s; }
+  .settings-row:active { background: var(--surface2); }
+  .settings-icon { font-size: 22px; width: 36px; text-align: center; flex-shrink: 0; }
+  .settings-info { flex: 1; }
+  .settings-title { font-size: 15px; font-weight: 500; margin-bottom: 2px; }
+  .settings-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .settings-arrow { color: var(--muted); font-size: 20px; }
+  .settings-divider { height: 1px; background: var(--border); margin: 0 16px; }
+  .settings-hint { font-size: 12px; color: var(--muted); line-height: 1.6; padding: 4px 2px; margin-top: 16px; }
 </style>
 </head>
 <body>
@@ -179,12 +191,49 @@
     <div class="section-label">Recent completions</div>
     <div id="history-list"></div>
   </div>
+
+  <div id="settings-view" style="display:none;">
+    <div class="section-label">Backup &amp; Restore</div>
+    <div class="settings-card">
+      <div class="settings-row" onclick="exportData()">
+        <div class="settings-icon">&#x1F4E4;</div>
+        <div class="settings-info">
+          <div class="settings-title">Export backup</div>
+          <div class="settings-desc">Download all activities and history as a JSON file</div>
+        </div>
+        <div class="settings-arrow">&#x203A;</div>
+      </div>
+      <div class="settings-divider"></div>
+      <div class="settings-row" onclick="document.getElementById('import-input').click()">
+        <div class="settings-icon">&#x1F4E5;</div>
+        <div class="settings-info">
+          <div class="settings-title">Import backup</div>
+          <div class="settings-desc">Restore from a previously exported JSON file</div>
+        </div>
+        <div class="settings-arrow">&#x203A;</div>
+      </div>
+      <input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+    <div class="section-label" style="margin-top:24px;">Danger Zone</div>
+    <div class="settings-card">
+      <div class="settings-row" onclick="clearAllData()">
+        <div class="settings-icon">&#x1F5D1;&#xFE0F;</div>
+        <div class="settings-info">
+          <div class="settings-title" style="color:var(--danger)">Clear all data</div>
+          <div class="settings-desc">Delete all activities and history permanently</div>
+        </div>
+        <div class="settings-arrow" style="color:var(--danger)">&#x203A;</div>
+      </div>
+    </div>
+    <div class="settings-hint">&#x1F4A1; Export your backup before updating the app or reinstalling on a new device. On iPhone, removing the app icon deletes local data.</div>
+  </div>
 </div>
 
 <div class="bottom-nav">
   <button class="nav-btn active" id="nav-today" onclick="showView('today')"><span class="nav-icon">⚡</span>Today</button>
   <button class="add-fab" onclick="openAddSheet()">+</button>
   <button class="nav-btn" id="nav-history" onclick="showView('history')"><span class="nav-icon">📅</span>Log</button>
+  <button class="nav-btn" id="nav-settings" onclick="showView('settings')"><span class="nav-icon">⚙️</span>Settings</button>
 </div>
 
 <!-- Add / Edit Activity Sheet -->
@@ -417,7 +466,13 @@ function render() {
   document.getElementById('stat-done').textContent = doneCount;
   document.getElementById('stat-best').textContent = bestStreak;
 
-  activities.forEach(a => {
+  const sorted = [...activities].sort((a, b) => {
+    const aDone = isDoneToday(a.id) ? 1 : 0;
+    const bDone = isDoneToday(b.id) ? 1 : 0;
+    return aDone - bDone;
+  });
+
+  sorted.forEach(a => {
     const done = isDoneToday(a.id);
     const streak = getStreak(a.id);
     const days7 = getLast7(a.id);
@@ -480,8 +535,10 @@ function toggleDone(event, id) {
 function showView(v) {
   document.getElementById('today-view').style.display = v === 'today' ? '' : 'none';
   document.getElementById('history-view').style.display = v === 'history' ? 'block' : 'none';
+  document.getElementById('settings-view').style.display = v === 'settings' ? 'block' : 'none';
   document.getElementById('nav-today').className = 'nav-btn' + (v==='today'?' active':'');
   document.getElementById('nav-history').className = 'nav-btn' + (v==='history'?' active':'');
+  document.getElementById('nav-settings').className = 'nav-btn' + (v==='settings'?' active':'');
   if (v === 'history') renderHistory();
 }
 
@@ -606,6 +663,47 @@ function toggleCalDay(dateStr) {
   if (idx >= 0) log.splice(idx, 1);
   else log.push({ id: calActivityId, date: dateStr });
   save(); renderCalGrid();
+}
+
+
+/* ── Backup & Restore ── */
+function exportData() {
+  const backup = { version: 1, exported: new Date().toISOString(), activities, log };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = `streaks-backup-${date}.json`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const backup = JSON.parse(e.target.result);
+      if (!backup.activities || !backup.log) { alert('Invalid backup file.'); return; }
+      if (!confirm(`This will replace all current data with the backup from ${backup.exported ? new Date(backup.exported).toLocaleDateString() : 'unknown date'}. Continue?`)) return;
+      activities = backup.activities;
+      log = backup.log;
+      save(); render();
+      alert('Backup restored successfully!');
+    } catch(err) {
+      alert('Could not read backup file. Make sure it is a valid Streaks JSON export.');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function clearAllData() {
+  if (!confirm('Delete ALL activities and history? This cannot be undone.')) return;
+  if (!confirm('Are you sure? All your streaks will be lost.')) return;
+  activities = []; log = [];
+  save(); render(); showView('today');
 }
 
 render();
